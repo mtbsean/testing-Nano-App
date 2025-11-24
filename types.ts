@@ -51,7 +51,7 @@ export type ReferenceUsage = 'Structure' | 'Style' | 'Clothing' | 'Face' | 'Back
 export type ReferenceMode = 'character' | 'style' | 'structure';
 
 export interface ReferenceImage {
-  file: File;
+  file?: File; // Optional now as loaded models might only have base64
   previewUrl: string;
   base64: string;
   mimeType: string;
@@ -81,6 +81,19 @@ export interface Draft {
   negativePrompt: string;
   style: string;
   aspectRatio: string;
+  timestamp: number;
+}
+
+export interface CustomModel {
+  id: string;
+  name: string;
+  triggerWord: string;
+  type: 'Style' | 'Character';
+  thumbnail: string;
+  images: {
+    base64: string;
+    mimeType: string;
+  }[];
   timestamp: number;
 }
 

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Controls } from './components/Controls';
@@ -6,8 +5,9 @@ import { Preview } from './components/Preview';
 import { History } from './components/History';
 import { ImageEditor } from './components/ImageEditor';
 import { GifGenerator } from './components/GifGenerator'; 
-import { VeoVideoModal } from './components/VeoVideoModal'; // New Import
-import { AspectRatio, ImageStyle, ReferenceImage, HistoryItem, SuggestionCategories, ReferenceMode, ReferenceUsage, Draft } from './types';
+import { VeoVideoModal } from './components/VeoVideoModal';
+import { ModelTrainer } from './components/ModelTrainer';
+import { AspectRatio, ImageStyle, ReferenceImage, HistoryItem, SuggestionCategories, ReferenceMode, ReferenceUsage, Draft, CustomModel } from './types';
 import { UNIVERSAL_TRAITS, WORLD_DATA } from './constants';
 import { 
   generateImageWithNanoBanana, 
@@ -34,21 +34,41 @@ const App: React.FC = () => {
   const [batchSize, setBatchSize] = useState<number>(1);
   const [batchProgress, setBatchProgress] = useState<{current: number, total: number} | null>(null);
   
-  // Granular Batch Settings
+  // Custom Models (LoRA)
+  const [customModels, setCustomModels] = useState<CustomModel[]>([]);
+  const [showModelTrainer, setShowModelTrainer] = useState(false);
+  const [trainerInitialImages, setTrainerInitialImages] = useState<{base64: string, mimeType: string, preview: string}[]>([]);
+  
+  // Complete Granular Batch Settings
   const [batchSettings, setBatchSettings] = useState({
-    varyPose: true,
+    // Character - Identity
+    varyGender: false,
     varyAge: false,
+    varyBody: false,
+    varySkinTone: false,
+    varyEyeColor: false,
+    varyFacialFeatures: false,
+    varyFacialHair: false,
     varyHair: false,
+    varyTattoos: false,
+    
+    // Character - State
+    varyPose: true,
     varyEmotion: false,
+    varyOutfit: true,
+    varyFootwear: false,
     varySkinTexture: false,
+    
+    // Environment
+    varyLocation: true,
+    varyWeather: true,
+    
+    // Camera & Technical
     varyFraming: true,
     varyLens: false,
     varyFocus: false,
     varyMotion: false,
     varyLighting: true,
-    varyOutfit: true,
-    varyLocation: true,
-    varyWeather: true
   });
   
   // Drafts State
@@ -104,6 +124,16 @@ const App: React.FC = () => {
         console.error("Failed to load drafts", e);
       }
     }
+
+    // 3. Load Custom Models
+    const savedModels = localStorage.getItem('nanobanana_models');
+    if (savedModels) {
+      try {
+        setCustomModels(JSON.parse(savedModels));
+      } catch (e) {
+        console.error("Failed to load models", e);
+      }
+    }
   }, []);
 
   // Autosave Session on Change
@@ -149,10 +179,60 @@ const App: React.FC = () => {
     localStorage.setItem('nanobanana_drafts', JSON.stringify(updatedDrafts));
   };
 
+  const handleSaveModel = (model: CustomModel) => {
+    const updatedModels = [model, ...customModels];
+    setCustomModels(updatedModels);
+    localStorage.setItem('nanobanana_models', JSON.stringify(updatedModels));
+    setShowModelTrainer(false);
+    setTrainerInitialImages([]);
+  };
+
+  const handleDeleteModel = (id: string) => {
+    const updatedModels = customModels.filter(m => m.id !== id);
+    setCustomModels(updatedModels);
+    localStorage.setItem('nanobanana_models', JSON.stringify(updatedModels));
+  };
+
+  const handleLoadModel = (model: CustomModel) => {
+    // Loading a model effectively sets the training images as the active reference images
+    // and prepares the prompt to use the trigger word.
+    
+    // 1. Convert model images to ReferenceImage objects
+    const refImages: ReferenceImage[] = model.images.map((img, idx) => ({
+      base64: img.base64,
+      mimeType: img.mimeType,
+      previewUrl: `data:${img.mimeType};base64,${img.base64}`,
+      usage: model.type === 'Character' ? 'Character' : 'Style',
+      intensity: 0.9 // High intensity for "trained" models
+    }));
+    
+    setReferenceImages(refImages);
+    
+    // 2. Set Reference Mode
+    setReferenceMode(model.type === 'Character' ? 'character' : 'style');
+    
+    // 3. Append trigger word to prompt if not present
+    if (!prompt.includes(model.triggerWord)) {
+        setPrompt(prev => `${model.triggerWord}, ${prev}`);
+    }
+    
+    // Visual feedback handled by controls/reference images
+  };
+
   const handleAddImages = async (files: FileList) => {
+    // Enforce limit of 4 images
+    const currentCount = referenceImages.length;
+    if (currentCount >= 4) {
+      alert("Maximum of 4 reference images allowed.");
+      return;
+    }
+
+    const remainingSlots = 4 - currentCount;
+    const filesToProcess = Array.from(files).slice(0, remainingSlots);
+
     const newImages: ReferenceImage[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    for (let i = 0; i < filesToProcess.length; i++) {
+      const file = filesToProcess[i];
       try {
         const base64 = await fileToBase64(file);
         const previewUrl = URL.createObjectURL(file);
@@ -174,7 +254,10 @@ const App: React.FC = () => {
   const handleRemoveImage = (index: number) => {
     setReferenceImages(prev => {
       const newImages = [...prev];
-      URL.revokeObjectURL(newImages[index].previewUrl); // cleanup
+      // Only revoke if created via URL.createObjectURL (not base64 data url)
+      if (newImages[index].previewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(newImages[index].previewUrl); 
+      }
       newImages.splice(index, 1);
       return newImages;
     });
@@ -219,50 +302,34 @@ const App: React.FC = () => {
     const worldInfo = WORLD_DATA[selectedWorld];
     let changes: string[] = [];
     
-    // Granular variations
-    if (batchSettings.varyOutfit) {
-      changes.push(`Attire: ${getRandomElement(worldInfo.clothing)}`);
-    }
-    if (batchSettings.varyLocation) {
-      changes.push(`Location: ${getRandomElement(worldInfo.environments)}`);
-    }
-    if (batchSettings.varyWeather) {
-      changes.push(`Weather: ${getRandomElement(UNIVERSAL_TRAITS.weather)}`);
-    }
+    // Character Identity
+    if (batchSettings.varyGender) changes.push(`Gender: ${getRandomElement(UNIVERSAL_TRAITS.gender)}`);
+    if (batchSettings.varyAge) changes.push(`Age: ${getRandomElement(UNIVERSAL_TRAITS.age)}`);
+    if (batchSettings.varyBody) changes.push(`Body Type: ${getRandomElement(UNIVERSAL_TRAITS.body)}`);
+    if (batchSettings.varySkinTone) changes.push(`Skin Tone: ${getRandomElement(UNIVERSAL_TRAITS.skinTone)}`);
+    if (batchSettings.varyEyeColor) changes.push(`Eye Color: ${getRandomElement(UNIVERSAL_TRAITS.eyeColor)}`);
+    if (batchSettings.varyFacialFeatures) changes.push(`Facial Features: ${getRandomElement(UNIVERSAL_TRAITS.facialFeature)}`);
+    if (batchSettings.varyFacialHair) changes.push(`Facial Hair: ${getRandomElement(UNIVERSAL_TRAITS.facialHair)}`);
+    if (batchSettings.varyHair) changes.push(`Hair: ${getRandomElement(UNIVERSAL_TRAITS.hairStyle)} ${getRandomElement(UNIVERSAL_TRAITS.hairColor)}`);
+    if (batchSettings.varyTattoos) changes.push(`Tattoos: ${getRandomElement(UNIVERSAL_TRAITS.tattoos)}`);
+
+    // Character State
+    if (batchSettings.varyPose) changes.push(`Pose: ${getRandomElement(UNIVERSAL_TRAITS.pose)}`);
+    if (batchSettings.varyEmotion) changes.push(`Expression: ${getRandomElement(UNIVERSAL_TRAITS.emotion)}`);
+    if (batchSettings.varyOutfit) changes.push(`Attire: ${getRandomElement(worldInfo.clothing)}`);
+    if (batchSettings.varyFootwear) changes.push(`Footwear: ${getRandomElement(UNIVERSAL_TRAITS.footwear)}`);
+    if (batchSettings.varySkinTexture) changes.push(`Skin Texture: ${getRandomElement(UNIVERSAL_TRAITS.skinTexture)}`);
+    
+    // Environment
+    if (batchSettings.varyLocation) changes.push(`Location: ${getRandomElement(worldInfo.environments)}`);
+    if (batchSettings.varyWeather) changes.push(`Weather: ${getRandomElement(UNIVERSAL_TRAITS.weather)}`);
     
     // Camera & Technical
-    if (batchSettings.varyFraming) {
-      changes.push(`Camera: ${getRandomElement(UNIVERSAL_TRAITS.framing)}`);
-    }
-    if (batchSettings.varyLens) {
-      changes.push(`Lens: ${getRandomElement(UNIVERSAL_TRAITS.lens)}`);
-    }
-    if (batchSettings.varyFocus) {
-      changes.push(`Focus: ${getRandomElement(UNIVERSAL_TRAITS.focus)}`);
-    }
-    if (batchSettings.varyMotion) {
-      changes.push(`Motion: ${getRandomElement(UNIVERSAL_TRAITS.motion)}`);
-    }
-    if (batchSettings.varyLighting) {
-      changes.push(`Lighting: ${getRandomElement(UNIVERSAL_TRAITS.lighting)}`);
-    }
-
-    // Character
-    if (batchSettings.varyPose) {
-      changes.push(`Pose: ${getRandomElement(UNIVERSAL_TRAITS.pose)}`);
-    }
-    if (batchSettings.varyEmotion) {
-      changes.push(`Expression: ${getRandomElement(UNIVERSAL_TRAITS.emotion)}`);
-    }
-    if (batchSettings.varyAge) {
-      changes.push(`Age: ${getRandomElement(UNIVERSAL_TRAITS.age)}`);
-    }
-    if (batchSettings.varyHair) {
-      changes.push(`Hair: ${getRandomElement(UNIVERSAL_TRAITS.hairStyle)} ${getRandomElement(UNIVERSAL_TRAITS.hairColor)}`);
-    }
-    if (batchSettings.varySkinTexture) {
-      changes.push(`Skin Texture: ${getRandomElement(UNIVERSAL_TRAITS.skinTexture)}`);
-    }
+    if (batchSettings.varyFraming) changes.push(`Camera: ${getRandomElement(UNIVERSAL_TRAITS.framing)}`);
+    if (batchSettings.varyLens) changes.push(`Lens: ${getRandomElement(UNIVERSAL_TRAITS.lens)}`);
+    if (batchSettings.varyFocus) changes.push(`Focus: ${getRandomElement(UNIVERSAL_TRAITS.focus)}`);
+    if (batchSettings.varyMotion) changes.push(`Motion: ${getRandomElement(UNIVERSAL_TRAITS.motion)}`);
+    if (batchSettings.varyLighting) changes.push(`Lighting: ${getRandomElement(UNIVERSAL_TRAITS.lighting)}`);
 
     // If no variations are selected, return original prompt
     if (changes.length === 0) return basePrompt;
@@ -409,24 +476,30 @@ const App: React.FC = () => {
         let instruction = "";
         
         if (isBatchMode) {
-             // Granular Instructions for Variation
-             if (batchSettings.varyPose) {
-                 instruction += ` Change pose to ${getRandomElement(UNIVERSAL_TRAITS.pose)}.`;
-             }
-             if (batchSettings.varyEmotion) {
-                 instruction += ` Change expression to ${getRandomElement(UNIVERSAL_TRAITS.emotion)}.`;
-             }
-             if (batchSettings.varyFraming) {
-                 instruction += ` Change camera angle to ${getRandomElement(UNIVERSAL_TRAITS.framing)}.`;
-             }
-             if (batchSettings.varyLighting) {
-                  instruction += ` Change lighting to ${getRandomElement(UNIVERSAL_TRAITS.lighting)}.`;
-             }
-             if (batchSettings.varyWeather) {
-                  instruction += ` Change weather to ${getRandomElement(UNIVERSAL_TRAITS.weather)}.`;
-             }
+             const traits = UNIVERSAL_TRAITS;
              
-             // Check consistency requirements
+             // Identity
+             if (batchSettings.varyGender) instruction += ` Change gender to ${getRandomElement(traits.gender)}.`;
+             if (batchSettings.varyAge) instruction += ` Change age to ${getRandomElement(traits.age)}.`;
+             if (batchSettings.varyBody) instruction += ` Change body type to ${getRandomElement(traits.body)}.`;
+             if (batchSettings.varySkinTone) instruction += ` Change skin tone to ${getRandomElement(traits.skinTone)}.`;
+             if (batchSettings.varyEyeColor) instruction += ` Change eye color to ${getRandomElement(traits.eyeColor)}.`;
+             if (batchSettings.varyHair) instruction += ` Change hair to ${getRandomElement(traits.hairStyle)} ${getRandomElement(traits.hairColor)}.`;
+             if (batchSettings.varyFacialHair) instruction += ` Change facial hair to ${getRandomElement(traits.facialHair)}.`;
+
+             // State
+             if (batchSettings.varyPose) instruction += ` Change pose to ${getRandomElement(traits.pose)}.`;
+             if (batchSettings.varyEmotion) instruction += ` Change expression to ${getRandomElement(traits.emotion)}.`;
+             if (batchSettings.varyFootwear) instruction += ` Change footwear to ${getRandomElement(traits.footwear)}.`;
+             
+             // Camera & Tech
+             if (batchSettings.varyFraming) instruction += ` Change camera angle to ${getRandomElement(traits.framing)}.`;
+             if (batchSettings.varyLighting) instruction += ` Change lighting to ${getRandomElement(traits.lighting)}.`;
+             if (batchSettings.varyWeather) instruction += ` Change weather to ${getRandomElement(traits.weather)}.`;
+             if (batchSettings.varyLens) instruction += ` Use ${getRandomElement(traits.lens)}.`;
+             if (batchSettings.varyMotion) instruction += ` Apply ${getRandomElement(traits.motion)}.`;
+             
+             // Consistency Checks
              if (!batchSettings.varyLocation) {
                  instruction += ` Keep background, location, and environment EXACTLY the same as original.`;
              } else {
@@ -543,6 +616,33 @@ const App: React.FC = () => {
     setGifBaseImages(selectedImages);
     setShowGifGenerator(true);
   };
+  
+  // Logic to train from selected batch history
+  const handleTrainFromHistory = () => {
+      const selectedItems = history.filter(item => selectedHistoryIds.includes(item.id));
+      
+      const validImages = selectedItems.map(item => {
+          // Parse data URL to get base64 and mime
+          const parts = item.imageUrl.split(',');
+          if (parts.length !== 2) return null;
+          const mimeMatch = parts[0].match(/:(.*?);/);
+          if (!mimeMatch) return null;
+          
+          return {
+              base64: parts[1],
+              mimeType: mimeMatch[1],
+              preview: item.imageUrl
+          };
+      }).filter(Boolean) as {base64: string, mimeType: string, preview: string}[];
+      
+      if (validImages.length > 0) {
+          setTrainerInitialImages(validImages);
+          setShowModelTrainer(true);
+          // Exit selection mode automatically
+          setIsSelectionMode(false);
+          setSelectedHistoryIds([]);
+      }
+  };
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200">
@@ -569,6 +669,17 @@ const App: React.FC = () => {
            initialImage={generatedImageUrl}
            initialPrompt={veoInitialPrompt}
            onClose={() => setShowVeoModal(false)}
+        />
+      )}
+      
+      {showModelTrainer && (
+        <ModelTrainer 
+           initialImages={trainerInitialImages}
+           onSave={handleSaveModel}
+           onCancel={() => {
+               setShowModelTrainer(false);
+               setTrainerInitialImages([]);
+           }}
         />
       )}
 
@@ -614,6 +725,11 @@ const App: React.FC = () => {
                onSaveDraft={handleSaveDraft}
                onLoadDraft={handleLoadDraft}
                onDeleteDraft={handleDeleteDraft}
+               // Custom Models
+               customModels={customModels}
+               onOpenModelTrainer={() => setShowModelTrainer(true)}
+               onLoadModel={handleLoadModel}
+               onDeleteModel={handleDeleteModel}
              />
           </div>
 
@@ -650,6 +766,7 @@ const App: React.FC = () => {
                 setSelectedHistoryIds([]);
               }}
               onCreateGif={handleOpenGifGenerator}
+              onTrainModel={handleTrainFromHistory}
             />
           </div>
         </div>
