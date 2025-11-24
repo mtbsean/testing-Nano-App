@@ -83,9 +83,8 @@ export const ADDITIONAL_SUBJECTS = {
       'Viking Horn', 'Scroll', 'Hologram Projector', 'Briefcase', 'Microphone', 'Canvas & Easel', 'Backpack'
   ],
   'Weapon': [
-      'Sword', 'Shield', 'Bow and Arrow', 'Laser Gun', 'Magic Staff', 'Dagger', 'Battle Axe', 'Katana', 'Revolver', 'Warhammer',
-      // New additions
-      'Viking Axe', 'Spear', 'Crossbow', 'Musket', 'Sniper Rifle', 'Lightsaber', 'Energy Sword', 'Morningstar', 'Trident', 'Throwing Knives', 'Whip'
+      'Viking Axe', 'Spear', 'Crossbow', 'Musket', 'Sword', 'Bow and Arrow', 'Katana', 'Revolver', 'Warhammer', 'Shield', 'Dagger',
+      'Laser Gun', 'Magic Staff', 'Battle Axe', 'Sniper Rifle', 'Lightsaber', 'Energy Sword', 'Morningstar', 'Trident', 'Throwing Knives', 'Whip', 'Claymore', 'Halberd', 'Mace'
   ],
   'Vehicle': [
       // Modern
@@ -97,20 +96,34 @@ export const ADDITIONAL_SUBJECTS = {
   ],
   'Person': ['Child', 'Soldier', 'Mysterious Stranger', 'Robot Companion', 'Bodyguard', 'Villain', 'Merchant'],
 
-  actions: ['Standing next to', 'Holding', 'Riding', 'Fighting', 'Chasing', 'Sitting on', 'Ignoring', 'Protecting', 'Talking to', 'Carrying', 'Surrounded by', 'Summoning']
+  actions: [
+    // Passive / Proximity
+    'Standing next to', 'Sitting next to', 'Surrounded by', 'Framed by', 'With', 'Near', 
+    // Holding / Carrying
+    'Holding', 'Carrying', 'Lifting', 'Wielding', 'Examining', 'Presenting',
+    // Active Interaction
+    'Playing with', 'Petting', 'Feeding', 'Talking to', 'Shouting at', 'Whispering to',
+    'Dancing with', 'Embracing', 'Kissing', 'Protecting', 'Guarding', 'Summoning',
+    // Conflict / Combat
+    'Fighting', 'Battling', 'Attacking', 'Defending against', 'Striking', 'Shooting at', 
+    'Chasing', 'Hunting', 'Stalking', 'Fleeing from', 'Running from', 'Hiding from',
+    // Movement / Transport
+    'Riding', 'Driving', 'Piloting', 'Flying', 'Steering',
+    // Passive (Subject is acted upon)
+    'Being chased by', 'Being watched by', 'Being attacked by', 'Being circled by', 'Being passed by', 
+    'Being carried by', 'Being ignored by'
+  ]
 };
 
 export const UNIVERSAL_TRAITS = {
   gender: ['Female', 'Male', 'Non-binary', 'Androgynous'],
   age: [
-    '18-25', 
-    '26-35', 
-    '36-45', 
-    '46-55', 
-    '56-65', 
-    '66-75', 
-    '76-85', 
-    '86+'
+    '20s', 
+    '30s', 
+    '40s', 
+    '50s', 
+    '60s', 
+    '70s'
   ],
   body: ['Slim', 'Athletic', 'Muscular', 'Curvy', 'Plus-sized', 'Tall', 'Petite', 'Average'],
   skinTone: ['Pale', 'Fair', 'Medium', 'Olive', 'Tan', 'Dark', 'Deep Ebony', 'Porcelain', 'Sun-kissed', 'Metallic', 'Alien'],
@@ -123,7 +136,8 @@ export const UNIVERSAL_TRAITS = {
     'Natural Imperfections', 'Sweat & Moisture', 
     'Subsurface Scattering', 'Translucent Skin',
     'Raw Skin Texture', 'Airbrushed', 'Oily Skin', 'Dry Skin', 
-    'Makeup Powder', 'Scarred Texture', 'Detailed Pores', 'Rough Skin'
+    'Makeup Powder', 'Scarred Texture', 'Detailed Pores', 'Rough Skin',
+    'Micro-Textured Skin', 'Vellus Hair (Peach Fuzz)', 'Uneven Skin Tone'
   ],
 
   // New Category: Tattoos & Body Art
@@ -163,8 +177,10 @@ export const UNIVERSAL_TRAITS = {
     'Hands in Pockets', 'Hand on Chin (Thinking)', 'Arms Outstretched', 'Shrugging', 'Thumbs Up', 'Peace Sign', 'Hands behind Head',
     // Posture
     'Sitting Cross-legged', 'Kneeling', 'Kneeling on one knee', 'Leaning against wall', 'Lying on Back', 'Lying on Stomach', 'Crouching', 'Sitting on Chair',
-    // Interactions
-    'Taking a Selfie', 'Looking over shoulder back at camera', 'Laughing Head Back', 'Aiming Weapon',
+    // Interactions & Selfies
+    'Selfie', 'Taking a Selfie', 'Selfie (High Angle)', 'Selfie (Mirror)', 'Group Selfie',
+    'Looking over shoulder back at camera', 'Looking Back (Profile)', 'Turning to face camera', 'Looking Back (Candid)',
+    'Laughing Head Back', 'Aiming Weapon',
     // Dynamic / Action
     'Jumping', 'Falling', 'Spinning', 'Punching', 'Kicking', 'Dodging', 'Parkour Vault', 'Diving', 'Sliding',
     // Yoga & Fitness
@@ -191,7 +207,8 @@ export const UNIVERSAL_TRAITS = {
     'Sharp Focus', 'Soft Focus', 
     'Film Grain', 'Heavy Film Grain', 'Fine Film Grain',
     'HDR', 'Best Quality', 'Vivid Colors', 'Muted Tones', 'Analog Film',
-    'Ray Tracing', 'Global Illumination', 'Ambient Occlusion', 'Chromatic Aberration'
+    'Ray Tracing', 'Global Illumination', 'Ambient Occlusion', 'Chromatic Aberration',
+    'Photorealistic Rendering', 'Crisp Detail', 'Optical Distortion'
   ]
 };
 

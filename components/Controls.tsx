@@ -1,7 +1,6 @@
 
-
 import React, { useRef, useState, useEffect } from 'react';
-import { AspectRatio, ImageStyle, ReferenceImage, SuggestionCategories, ReferenceUsage, SecondarySubject, ReferenceMode } from '../types';
+import { AspectRatio, ImageStyle, ReferenceImage, SuggestionCategories, ReferenceUsage, SecondarySubject, ReferenceMode, Draft } from '../types';
 import { WORLD_DATA, UNIVERSAL_TRAITS, QUICK_TEMPLATES, ADDITIONAL_SUBJECTS } from '../constants';
 
 interface ControlsProps {
@@ -36,20 +35,44 @@ interface ControlsProps {
   setIsBatchMode: (val: boolean) => void;
   batchSettings: {
     varyPose: boolean;
+    varyAge: boolean;
+    varyHair: boolean;
+    varyEmotion: boolean;
+    varySkinTexture: boolean;
     varyFraming: boolean;
+    varyLens: boolean;
+    varyFocus: boolean;
+    varyMotion: boolean;
+    varyLighting: boolean;
     varyOutfit: boolean;
     varyLocation: boolean;
+    varyWeather: boolean;
   };
   setBatchSettings: React.Dispatch<React.SetStateAction<{
     varyPose: boolean;
+    varyAge: boolean;
+    varyHair: boolean;
+    varyEmotion: boolean;
+    varySkinTexture: boolean;
     varyFraming: boolean;
+    varyLens: boolean;
+    varyFocus: boolean;
+    varyMotion: boolean;
+    varyLighting: boolean;
     varyOutfit: boolean;
     varyLocation: boolean;
+    varyWeather: boolean;
   }>>;
 
   // World State from Parent
   selectedWorld: keyof typeof WORLD_DATA;
   setSelectedWorld: (val: keyof typeof WORLD_DATA) => void;
+
+  // Drafts Props
+  drafts: Draft[];
+  onSaveDraft: () => void;
+  onLoadDraft: (draft: Draft) => void;
+  onDeleteDraft: (id: string) => void;
 }
 
 interface WeightedTerm {
@@ -89,17 +112,22 @@ export const Controls: React.FC<ControlsProps> = ({
   batchSettings,
   setBatchSettings,
   selectedWorld,
-  setSelectedWorld
+  setSelectedWorld,
+  drafts,
+  onSaveDraft,
+  onLoadDraft,
+  onDeleteDraft
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showBuilder, setShowBuilder] = useState(false);
+  const [showDrafts, setShowDrafts] = useState(false);
   const [suggestions, setSuggestions] = useState<SuggestionCategories | null>(null);
   const [isSuggesting, setIsSuggesting] = useState(false);
   
   // Builder State
   const [builderState, setBuilderState] = useState({
     gender: 'Female',
-    age: '18-25',
+    age: '20s',
     body: 'Athletic',
     skinTone: 'Fair',
     skinTexture: 'Photorealistic Skin',
@@ -338,8 +366,25 @@ export const Controls: React.FC<ControlsProps> = ({
       [key]: !prev[key]
     }));
   };
+  
+  const applyPresetPoseSheet = () => {
+      setBatchSettings({
+          varyPose: true,
+          varyAge: false,
+          varyHair: false,
+          varyEmotion: false,
+          varySkinTexture: false,
+          varyFraming: true,
+          varyLens: false,
+          varyFocus: false,
+          varyMotion: false,
+          varyLighting: false,
+          varyOutfit: false,
+          varyLocation: false,
+          varyWeather: false
+      });
+  };
 
-  // Helper to render trait buttons (Standard)
   const renderTraitButtons = (category: keyof typeof builderState, options: string[]) => (
     <div className="flex flex-wrap gap-1.5">
       {options.map(opt => (
@@ -358,7 +403,6 @@ export const Controls: React.FC<ControlsProps> = ({
     </div>
   );
 
-  // Helper for scrollable trait buttons (for long lists like Role/Attire)
   const renderScrollableTraitButtons = (category: keyof typeof builderState, options: string[]) => (
     <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800/50 p-1 border border-slate-800 rounded-md bg-slate-900/30">
       {options.map(opt => (
@@ -387,6 +431,19 @@ export const Controls: React.FC<ControlsProps> = ({
           </label>
           <div className="flex gap-2">
             <button
+              onClick={() => setShowDrafts(!showDrafts)}
+              className={`text-xs flex items-center gap-1 px-3 py-1.5 rounded-lg border transition-all font-medium ${
+                showDrafts 
+                  ? 'bg-indigo-600 text-white border-indigo-500' 
+                  : 'bg-slate-700 text-slate-200 border-transparent hover:bg-slate-600'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+              </svg>
+              Drafts
+            </button>
+            <button
               onClick={() => setShowBuilder(!showBuilder)}
               className={`text-xs flex items-center gap-1 px-3 py-1.5 rounded-lg border transition-all font-medium ${
                 showBuilder 
@@ -397,7 +454,7 @@ export const Controls: React.FC<ControlsProps> = ({
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
               </svg>
-              {showBuilder ? 'Close Builder' : 'Prompt Builder'}
+              {showBuilder ? 'Close' : 'Builder'}
             </button>
             <button
               onClick={handleFetchSuggestions}
@@ -408,7 +465,7 @@ export const Controls: React.FC<ControlsProps> = ({
               <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isSuggesting ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              {isSuggesting ? 'Thinking...' : 'AI Suggestions'}
+              Suggestions
             </button>
             <button
               onClick={onEnhancePrompt}
@@ -419,15 +476,61 @@ export const Controls: React.FC<ControlsProps> = ({
               <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isEnhancing ? 'animate-spin' : ''}`} viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 9a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zm7-10a1 1 0 01.707.293l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L14.586 5H7a1 1 0 010-2h7.586l-1.293-1.293A1 1 0 0112 1z" clipRule="evenodd" />
               </svg>
-              {isEnhancing ? 'Dreaming...' : 'Magic Prompt'}
+              Magic
             </button>
           </div>
         </div>
+
+        {/* Drafts Panel */}
+        {showDrafts && (
+           <div className="mb-4 p-4 bg-slate-900 rounded-xl border border-slate-700 animate-in fade-in slide-in-from-top-2">
+             <div className="flex justify-between items-center mb-4">
+                <span className="text-sm font-bold text-slate-300">Drafts Manager</span>
+                <button 
+                  onClick={onSaveDraft}
+                  disabled={!prompt.trim()}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-lg transition-colors font-medium disabled:opacity-50"
+                >
+                  Save Current as Draft
+                </button>
+             </div>
+             
+             {drafts.length === 0 ? (
+                <p className="text-xs text-slate-500 italic text-center py-4">No saved drafts yet.</p>
+             ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                   {drafts.map(draft => (
+                      <div key={draft.id} className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 flex justify-between items-center group">
+                         <div className="overflow-hidden mr-2">
+                            <p className="text-xs text-white truncate font-medium">{draft.name}</p>
+                            <p className="text-[10px] text-slate-500">
+                               {new Date(draft.timestamp).toLocaleDateString()} • {draft.style}
+                            </p>
+                         </div>
+                         <div className="flex gap-2">
+                            <button 
+                               onClick={() => onLoadDraft(draft)}
+                               className="text-xs px-2 py-1 bg-slate-700 hover:bg-blue-600 text-blue-200 hover:text-white rounded transition-colors"
+                            >
+                               Load
+                            </button>
+                            <button 
+                               onClick={() => onDeleteDraft(draft.id)}
+                               className="text-xs px-2 py-1 bg-slate-700 hover:bg-red-600 text-red-200 hover:text-white rounded transition-colors"
+                            >
+                               Del
+                            </button>
+                         </div>
+                      </div>
+                   ))}
+                </div>
+             )}
+           </div>
+        )}
         
         {/* Prompt Builder Panel */}
         {showBuilder && (
           <div className="mb-4 p-4 bg-slate-900 rounded-xl border border-slate-700 animate-in fade-in slide-in-from-top-2 duration-200 shadow-inner">
-             
              {/* World Selector */}
              <div className="mb-5 pb-4 border-b border-slate-800">
                <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Step 1: Choose World / Era</span>
@@ -479,7 +582,8 @@ export const Controls: React.FC<ControlsProps> = ({
                            <span className="text-[10px] text-yellow-500/80 uppercase font-bold">Skin Realism & Texture</span>
                            <span className="text-[9px] text-slate-500 ml-2">(Affects pores, wrinkles, etc)</span>
                          </div>
-                         {renderTraitButtons('skinTexture', UNIVERSAL_TRAITS.skinTexture)}
+                         {/* Switched to Scrollable buttons for Granular options */}
+                         {renderScrollableTraitButtons('skinTexture', UNIVERSAL_TRAITS.skinTexture)}
                       </div>
 
                       <div>
@@ -636,8 +740,8 @@ export const Controls: React.FC<ControlsProps> = ({
 
                                     {/* Interaction */}
                                     <div>
-                                        <span className="text-[9px] text-slate-500 uppercase block mb-1">Interaction</span>
-                                        <div className="flex flex-wrap gap-1">
+                                        <span className="text-[9px] text-slate-500 uppercase block mb-1">Interaction / Action</span>
+                                        <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800/50 p-1 border border-slate-800 rounded bg-slate-900/30">
                                             {ADDITIONAL_SUBJECTS.actions.map(opt => (
                                                 <button 
                                                     key={opt}
@@ -678,7 +782,8 @@ export const Controls: React.FC<ControlsProps> = ({
                 {/* Image Quality Section */}
                 <div className="mt-4 p-3 bg-indigo-900/20 border border-indigo-500/30 rounded-lg">
                     <span className="block text-[10px] text-indigo-300 font-bold uppercase mb-2">Image Quality & Style</span>
-                    {renderTraitButtons('imageQuality', UNIVERSAL_TRAITS.imageQuality)}
+                    {/* Switched to Scrollable buttons for Granular options */}
+                    {renderScrollableTraitButtons('imageQuality', UNIVERSAL_TRAITS.imageQuality)}
                 </div>
              </div>
 
@@ -1155,43 +1260,68 @@ export const Controls: React.FC<ControlsProps> = ({
 
              {/* Variation Settings */}
              <div className="bg-slate-950/30 p-3 rounded-lg border border-slate-800">
-                <span className="block text-xs font-bold text-slate-400 mb-2">Variation Settings (Check to Randomize)</span>
-                <div className="grid grid-cols-2 gap-2">
-                    <label className="flex items-center space-x-2 cursor-pointer p-2 rounded hover:bg-slate-800/50">
-                        <input 
-                            type="checkbox" 
-                            checked={batchSettings.varyPose} 
-                            onChange={() => toggleBatchSetting('varyPose')}
-                            className="form-checkbox h-4 w-4 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500"
-                        />
-                        <span className="text-xs text-slate-300">Vary Character (Age, Pose, Hair)</span>
+                <div className="flex justify-between items-center mb-2">
+                    <span className="block text-xs font-bold text-slate-400">Variation Settings (Select what to randomize)</span>
+                    <button 
+                        onClick={applyPresetPoseSheet}
+                        className="text-[10px] px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded border border-indigo-500 flex items-center gap-1"
+                        title="Varies Pose/Camera but keeps everything else fixed"
+                    >
+                        <span>✨ Quick Preset: Pose Sheet</span>
+                    </button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <label className="flex items-center space-x-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/50">
+                        <input type="checkbox" checked={batchSettings.varyPose} onChange={() => toggleBatchSetting('varyPose')} className="form-checkbox h-3.5 w-3.5 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500" />
+                        <span className="text-[11px] text-slate-300">Pose / Action</span>
                     </label>
-                    <label className="flex items-center space-x-2 cursor-pointer p-2 rounded hover:bg-slate-800/50">
-                        <input 
-                            type="checkbox" 
-                            checked={batchSettings.varyFraming} 
-                            onChange={() => toggleBatchSetting('varyFraming')}
-                            className="form-checkbox h-4 w-4 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500"
-                        />
-                        <span className="text-xs text-slate-300">Vary Camera & Lighting</span>
+                    <label className="flex items-center space-x-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/50">
+                        <input type="checkbox" checked={batchSettings.varyAge} onChange={() => toggleBatchSetting('varyAge')} className="form-checkbox h-3.5 w-3.5 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500" />
+                        <span className="text-[11px] text-slate-300">Age</span>
                     </label>
-                    <label className="flex items-center space-x-2 cursor-pointer p-2 rounded hover:bg-slate-800/50">
-                        <input 
-                            type="checkbox" 
-                            checked={batchSettings.varyOutfit} 
-                            onChange={() => toggleBatchSetting('varyOutfit')}
-                            className="form-checkbox h-4 w-4 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500"
-                        />
-                        <span className="text-xs text-slate-300">Vary Attire</span>
+                    <label className="flex items-center space-x-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/50">
+                        <input type="checkbox" checked={batchSettings.varyHair} onChange={() => toggleBatchSetting('varyHair')} className="form-checkbox h-3.5 w-3.5 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500" />
+                        <span className="text-[11px] text-slate-300">Hair</span>
                     </label>
-                    <label className="flex items-center space-x-2 cursor-pointer p-2 rounded hover:bg-slate-800/50">
-                        <input 
-                            type="checkbox" 
-                            checked={batchSettings.varyLocation} 
-                            onChange={() => toggleBatchSetting('varyLocation')}
-                            className="form-checkbox h-4 w-4 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500"
-                        />
-                        <span className="text-xs text-slate-300">Vary Location & Weather</span>
+                    <label className="flex items-center space-x-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/50">
+                        <input type="checkbox" checked={batchSettings.varyEmotion} onChange={() => toggleBatchSetting('varyEmotion')} className="form-checkbox h-3.5 w-3.5 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500" />
+                        <span className="text-[11px] text-slate-300">Emotion / Expression</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/50">
+                        <input type="checkbox" checked={batchSettings.varySkinTexture} onChange={() => toggleBatchSetting('varySkinTexture')} className="form-checkbox h-3.5 w-3.5 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500" />
+                        <span className="text-[11px] text-slate-300">Skin Texture</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/50">
+                        <input type="checkbox" checked={batchSettings.varyOutfit} onChange={() => toggleBatchSetting('varyOutfit')} className="form-checkbox h-3.5 w-3.5 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500" />
+                        <span className="text-[11px] text-slate-300">Outfit / Attire</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/50">
+                        <input type="checkbox" checked={batchSettings.varyLocation} onChange={() => toggleBatchSetting('varyLocation')} className="form-checkbox h-3.5 w-3.5 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500" />
+                        <span className="text-[11px] text-slate-300">Location</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/50">
+                        <input type="checkbox" checked={batchSettings.varyWeather} onChange={() => toggleBatchSetting('varyWeather')} className="form-checkbox h-3.5 w-3.5 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500" />
+                        <span className="text-[11px] text-slate-300">Weather</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/50">
+                        <input type="checkbox" checked={batchSettings.varyFraming} onChange={() => toggleBatchSetting('varyFraming')} className="form-checkbox h-3.5 w-3.5 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500" />
+                        <span className="text-[11px] text-slate-300">Camera Framing</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/50">
+                        <input type="checkbox" checked={batchSettings.varyLens} onChange={() => toggleBatchSetting('varyLens')} className="form-checkbox h-3.5 w-3.5 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500" />
+                        <span className="text-[11px] text-slate-300">Lens</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/50">
+                        <input type="checkbox" checked={batchSettings.varyFocus} onChange={() => toggleBatchSetting('varyFocus')} className="form-checkbox h-3.5 w-3.5 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500" />
+                        <span className="text-[11px] text-slate-300">Focus / Aperture</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/50">
+                        <input type="checkbox" checked={batchSettings.varyMotion} onChange={() => toggleBatchSetting('varyMotion')} className="form-checkbox h-3.5 w-3.5 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500" />
+                        <span className="text-[11px] text-slate-300">Motion Blur</span>
+                    </label>
+                     <label className="flex items-center space-x-2 cursor-pointer p-1.5 rounded hover:bg-slate-800/50">
+                        <input type="checkbox" checked={batchSettings.varyLighting} onChange={() => toggleBatchSetting('varyLighting')} className="form-checkbox h-3.5 w-3.5 text-yellow-500 rounded border-slate-600 bg-slate-700 focus:ring-yellow-500" />
+                        <span className="text-[11px] text-slate-300">Lighting</span>
                     </label>
                 </div>
              </div>

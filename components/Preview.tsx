@@ -8,6 +8,8 @@ interface PreviewProps {
   onUpscale?: () => void;
   onVariation?: () => void;
   onEdit?: () => void;
+  onAnimate?: () => void; // Existing GIF animation
+  onVeoVideo?: (prompt?: string) => void; // Updated to accept optional prompt
   // New props for batch progress
   batchProgress?: {
     current: number;
@@ -17,6 +19,9 @@ interface PreviewProps {
   onGenerateCaption?: () => void;
   isGeneratingCaption?: boolean;
   generatedCaption?: string | null;
+  // Batch Mode props for button label
+  isBatchMode?: boolean;
+  batchSize?: number;
 }
 
 export const Preview: React.FC<PreviewProps> = ({ 
@@ -26,18 +31,33 @@ export const Preview: React.FC<PreviewProps> = ({
   onUpscale, 
   onVariation, 
   onEdit, 
+  onAnimate,
+  onVeoVideo,
   batchProgress,
   onGenerateCaption,
   isGeneratingCaption,
-  generatedCaption
+  generatedCaption,
+  isBatchMode,
+  batchSize
 }) => {
   const [copied, setCopied] = useState(false);
+  const [videoPrompt, setVideoPrompt] = useState('');
 
   const handleCopyCaption = () => {
     if (generatedCaption) {
       navigator.clipboard.writeText(generatedCaption);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleVeoClick = () => {
+    if (onVeoVideo) onVeoVideo();
+  };
+
+  const handleQuickVideo = () => {
+    if (onVeoVideo && videoPrompt.trim()) {
+      onVeoVideo(videoPrompt);
     }
   };
 
@@ -59,7 +79,7 @@ export const Preview: React.FC<PreviewProps> = ({
                  <div>
                    <p className="text-slate-200 font-bold text-lg animate-pulse">Generating Batch...</p>
                    <p className="text-yellow-500 font-medium text-xl mt-1">{batchProgress.current} / {batchProgress.total}</p>
-                   <p className="text-xs text-slate-500 mt-2">Mixing outfits, poses, and environments</p>
+                   <p className="text-xs text-slate-500 mt-2">Creating variations...</p>
                  </div>
               ) : (
                 <>
@@ -115,46 +135,65 @@ export const Preview: React.FC<PreviewProps> = ({
       {imageUrl && !isLoading && (
         <div className="flex flex-col gap-4">
            {/* Actions Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <button
               onClick={onEdit}
-              className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-slate-800 border border-slate-700 hover:border-green-500/50 hover:bg-slate-700 transition-all text-xs sm:text-sm font-medium"
+              className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-green-500/50 hover:bg-slate-700 transition-all text-xs font-medium"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
-              Edit & Filters
+              Edit
             </button>
             <button
               onClick={onUpscale}
-              className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-slate-800 border border-slate-700 hover:border-yellow-500/50 hover:bg-slate-700 transition-all text-xs sm:text-sm font-medium"
+              className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-yellow-500/50 hover:bg-slate-700 transition-all text-xs font-medium"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              Upscale (4K)
+              Upscale
             </button>
             <button
               onClick={onVariation}
-              className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-slate-800 border border-slate-700 hover:border-blue-500/50 hover:bg-slate-700 transition-all text-xs sm:text-sm font-medium"
+              className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-blue-500/50 hover:bg-slate-700 transition-all text-xs font-medium"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Variations
+              {isBatchMode ? `Batch Variations (${batchSize})` : 'Variations'}
+            </button>
+            <button
+               onClick={onAnimate}
+               className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-pink-500/50 hover:bg-slate-700 transition-all text-xs font-medium text-pink-400 hover:text-pink-300"
+            >
+               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+               </svg>
+               GIF Studio
+            </button>
+            <button
+               onClick={handleVeoClick}
+               className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-purple-500/50 hover:bg-slate-700 transition-all text-xs font-medium text-purple-400 hover:text-purple-300"
+            >
+               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+               </svg>
+               Video (Veo)
             </button>
             <button
                onClick={onGenerateCaption}
                disabled={isGeneratingCaption}
-               className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-slate-800 border border-slate-700 hover:border-purple-500/50 hover:bg-slate-700 transition-all text-xs sm:text-sm font-medium disabled:opacity-50"
+               className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-purple-500/50 hover:bg-slate-700 transition-all text-xs font-medium disabled:opacity-50"
             >
                {isGeneratingCaption ? (
-                 <svg className="animate-spin h-5 w-5 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                 <svg className="animate-spin h-4 w-4 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                  </svg>
                ) : (
-                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                  </svg>
                )}
@@ -162,6 +201,35 @@ export const Preview: React.FC<PreviewProps> = ({
             </button>
           </div>
           
+          {/* Quick Video Prompt Section */}
+          <div className="bg-slate-900/40 border border-purple-500/20 p-3 rounded-xl animate-in fade-in slide-in-from-top-1">
+             <div className="flex flex-col sm:flex-row gap-3 items-end sm:items-center">
+                <div className="flex-grow w-full">
+                   <label className="text-[10px] font-bold text-purple-400 uppercase tracking-wide mb-1 block flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                      </svg>
+                      Turn Image into Video
+                   </label>
+                   <input 
+                      type="text" 
+                      value={videoPrompt}
+                      onChange={(e) => setVideoPrompt(e.target.value)}
+                      placeholder="Describe what happens (e.g. The dragon breathes fire, Camera zooms out...)"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-purple-500 outline-none placeholder-slate-500 transition-colors"
+                      onKeyDown={(e) => e.key === 'Enter' && handleQuickVideo()}
+                   />
+                </div>
+                <button 
+                  onClick={handleQuickVideo}
+                  disabled={!videoPrompt.trim()}
+                  className="w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 h-[38px] mt-1 sm:mt-0"
+                >
+                  Create Video
+                </button>
+             </div>
+          </div>
+
           {/* Generated Caption Display */}
           {generatedCaption && (
             <div className="bg-slate-900/80 border border-purple-500/30 p-4 rounded-xl animate-in fade-in slide-in-from-top-2">

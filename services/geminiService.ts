@@ -1,5 +1,4 @@
 
-
 import { GoogleGenAI, Part, Type } from "@google/genai";
 import { ImageStyle, SuggestionCategories, ReferenceImage } from "../types";
 
@@ -279,6 +278,73 @@ export const generateVariation = async (
   });
 
   return extractImageFromResponse(response);
+};
+
+export const generateVeoVideo = async (
+  imageBase64: string,
+  mimeType: string,
+  prompt: string,
+  aspectRatio: '16:9' | '9:16',
+  onStatusUpdate?: (status: string) => void
+): Promise<string | null> => {
+  const ai = getClient();
+  const modelId = 'veo-3.1-fast-generate-preview';
+  
+  try {
+    if (onStatusUpdate) onStatusUpdate("Initializing request...");
+
+    let operation = await ai.models.generateVideos({
+      model: modelId,
+      prompt: prompt || "Animate this image.",
+      image: {
+        imageBytes: imageBase64,
+        mimeType: mimeType,
+      },
+      config: {
+        numberOfVideos: 1,
+        resolution: '1080p',
+        aspectRatio: aspectRatio
+      }
+    });
+
+    if (onStatusUpdate) onStatusUpdate("Request submitted...");
+
+    // Poll for completion
+    let attempts = 0;
+    while (!operation.done) {
+      attempts++;
+      
+      if (onStatusUpdate) {
+          if (attempts <= 2) onStatusUpdate("Analyzing image composition...");
+          else if (attempts <= 5) onStatusUpdate("Generating motion vectors...");
+          else if (attempts <= 8) onStatusUpdate("Rendering video frames...");
+          else onStatusUpdate("Finalizing video encoding...");
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      operation = await ai.operations.getVideosOperation({operation: operation});
+    }
+
+    if (operation.error) {
+      throw new Error(operation.error.message || "Video generation failed");
+    }
+
+    if (onStatusUpdate) onStatusUpdate("Downloading generated video...");
+
+    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+    if (!downloadLink) {
+      throw new Error("No video URI returned");
+    }
+
+    // Fetch the MP4 bytes using the key
+    const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+
+  } catch (error) {
+    console.error("Veo Video Error:", error);
+    throw error;
+  }
 };
 
 const extractImageFromResponse = (response: any): string | null => {

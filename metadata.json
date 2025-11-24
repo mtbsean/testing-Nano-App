@@ -1,5 +1,5 @@
 {
-  "name": "NanoBanana Studio",
+  "name": "NanoBanana Image Generation",
   "description": "A high-performance AI image generator using the Nano Banana (Gemini Flash Image) model. Create stunning visuals with custom styles and aspect ratios.",
   "requestFramePermissions": []
 }

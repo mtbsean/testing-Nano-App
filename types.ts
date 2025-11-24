@@ -74,6 +74,16 @@ export interface HistoryItem {
   timestamp: number;
 }
 
+export interface Draft {
+  id: string;
+  name: string;
+  prompt: string;
+  negativePrompt: string;
+  style: string;
+  aspectRatio: string;
+  timestamp: number;
+}
+
 export interface SuggestionCategories {
   lighting: string[];
   camera: string[];
